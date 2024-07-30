@@ -58,6 +58,9 @@ CREATE TABLE students (
     student_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     registration_date DATE NOT NULL
+    password TEXT NOT NULL
+);
+
 );
 
 CREATE TABLE student_exam_enrollments (

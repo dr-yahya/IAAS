@@ -11,32 +11,13 @@ def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
-def create_tables():
+
+def check_user(email, password):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
-def check_user(email, password, user_type='student'):
-    table = 'students' if user_type == 'student' else 'admins'
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM {table} WHERE email = ? AND password = ?", (email, hashlib.md5(password.encode()).hexdigest()))
+    hashed_password=hashlib.md5(password.encode()).hexdigest()
+    print(hashed_password)
+    cursor.execute("SELECT * FROM users WHERE email = ? AND password = ?", (email, hashed_password))
     user = cursor.fetchone()
     conn.close()
     return user
@@ -66,7 +47,7 @@ def register():
         # Check if the email is already registered
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM students WHERE email = ?", (email,))
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
         existing_user = cursor.fetchone()
         if existing_user:
             flash('Email is already registered', 'danger')
@@ -74,21 +55,21 @@ def register():
             return render_template('register.html')
 
         # Insert the new user into the database
-        cursor.execute("INSERT INTO students (name, email, password) VALUES (?, ?, ?)", (name, email, hashed_password))
+        cursor.execute("INSERT INTO users (name, email, password,type) VALUES (?, ?, ?,?)", (name, email, hashed_password,1))
         conn.commit()
         conn.close()
 
         # Set the session variables
         session['user_id'] = cursor.lastrowid
-        session['user_type'] = 'student'
+        session['user_type'] = 1
 
         # Redirect to the student dashboard
         return redirect(url_for('dashboard_student'))
 
     if 'user_id' in session:
-        if session.get('user_type') == 'admin':
+        if session.get('user_type') == 0:
             return redirect(url_for('dashboard_admin'))
-        elif not session.get('user_type') == 'admin':
+        elif not session.get('user_type') == 0:
             return redirect(url_for('dashboard_student'))
         else:
             return render_template('register.html')
@@ -100,10 +81,10 @@ def login_student():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
-        user = check_user(email, password, 'student')
+        user = check_user(email, password)
         if user:
             session['user_id'] = user['id']
-            session['user_type'] = 'student'
+            session['user_type'] = user['type']
             return redirect(url_for('dashboard_student'))
         else:
             flash('Invalid credentials')
@@ -114,10 +95,10 @@ def login_admin():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
-        user = check_user(email, password, 'admin')
+        user = check_user(email, password)
         if user:
             session['user_id'] = user['id']
-            session['user_type'] = 'admin'
+            session['user_type'] = user['type']
             return redirect(url_for('dashboard_admin'))
         else:
             flash('Invalid credentials')
@@ -137,19 +118,19 @@ def dashboard_student():
 
 @app.route('/dashboard/admin')
 def dashboard_admin():
-    if 'user_id' not in session or session.get('user_type') != 'admin':
+    if 'user_id' not in session or session.get('user_type') != 0:
         return redirect(url_for('login_admin'))
     return render_template('dashboard.html')
 
 @app.route('/manage_exam')
 def manage_exam():
-    if 'user_id' not in session or session.get('user_type') != 'admin':
+    if 'user_id' not in session or session.get('user_type') != 0:
         return redirect(url_for('login_admin'))
     return render_template('manage_exam.html')
 
 @app.route('/create_exam', methods=['GET', 'POST'])
 def create_exam():
-    if 'user_id' not in session or session.get('user_type') != 'admin':
+    if 'user_id' not in session or session.get('user_type') != 0:
         return redirect(url_for('login_admin'))
     if request.method == 'POST':
         class_name = request.form['class_name']
@@ -184,9 +165,9 @@ def view_results():
         SELECT e.exam_id, s.name as student_name, r.score
         FROM responses r
         JOIN student_exam_enrollments se ON r.enrollment_id = se.enrollment_id
-        JOIN students s ON se.student_id = s.student_id
+        JOIN users s ON se.student_id = s.id
         JOIN exams e ON se.exam_id = e.exam_id
-        WHERE s.student_id = ?
+        WHERE s.id = ?
     ''', (session['user_id'],))
 
     results = cursor.fetchall()
@@ -197,7 +178,7 @@ def view_results():
 
 @app.route('/lecturer_exams')
 def lecturer_exams():
-    if 'user_id' not in session or session.get('user_type') != 'admin':
+    if 'user_id' not in session or session.get('user_type') != 0:
         return redirect(url_for('login_admin'))
 
     lecturer_id = session['user_id']
@@ -212,16 +193,16 @@ def lecturer_exams():
     return render_template('lecturer_exams.html', exams=exams)
 @app.route('/exam_results/<int:exam_id>')
 def exam_results(exam_id):
-    if 'user_id' not in session or session.get('user_type') != 'admin':
+    if 'user_id' not in session or session.get('user_type') != 0:
         return redirect(url_for('login_admin'))
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT students.name AS student_name, responses.score
+        SELECT users.name AS student_name, responses.score
         FROM responses
         JOIN student_exam_enrollments ON responses.enrollment_id = student_exam_enrollments.enrollment_id
-        JOIN students ON student_exam_enrollments.student_id = students.student_id
+        JOIN users ON student_exam_enrollments.student_id = users.student_id
         WHERE student_exam_enrollments.exam_id = ?
     ''', (exam_id,))
     results = cursor.fetchall()
@@ -231,5 +212,4 @@ def exam_results(exam_id):
 
 
 if __name__ == '__main__':
-    create_tables()
     app.run(debug=True)
