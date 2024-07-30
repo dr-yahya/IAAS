@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Take Exam{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        Take Exam
+    </div>
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label for="examKey" class="form-label">Exam Key</label>
+                <input type="text" class="form-control" id="examKey" name="exam_key">
+            </div>
+            <button type="submit" class="btn btn-primary">Start Exam</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

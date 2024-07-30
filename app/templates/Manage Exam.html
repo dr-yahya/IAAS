@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Manage Exam{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        Manage Exam Settings
+    </div>
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label for="examTitle" class="form-label">Exam Title</label>
+                <input type="text" class="form-control" id="examTitle" name="title" required>
+            </div>
+            <div class="mb-3">
+                <label for="examKey" class="form-label">Exam Key</label>
+                <input type="text" class="form-control" id="examKey" name="exam_key" required>
+            </div>
+            <div class="mb-3">
+                <label for="isActive" class="form-label">Is Active</label>
+                <select class="form-control" id="isActive" name="is_active">
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="examDuration" class="form-label">Duration (minutes)</label>
+                <input type="number" class="form-control" id="examDuration" name="duration" required>
+            </div>
+            <div class="mb-3">
+                <label for="numStudents" class="form-label">Number of Students</label>
+                <input type="number" class="form-control" id="numStudents" name="num_students" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Exam</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
